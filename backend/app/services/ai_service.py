@@ -1,96 +1,74 @@
 
 import json
-import os
 import logging
 
-from openai import OpenAI
+from groq import Groq
 from app.config import GROQ_API_KEY, GROQ_MODEL
+
+
+# --------------------------------------------------
+# GROQ CONFIGURATION
+# --------------------------------------------------
 
 logger = logging.getLogger(__name__)
 
-# Provider configurations
-PROVIDERS = [
-    {
-        "name": "Gemini",
-        "api_key": os.getenv("GEMINI_API_KEY"),
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite"),
-    },
-    {
-        "name": "OpenRouter",
-        "api_key": os.getenv("OPENROUTER_API_KEY"),
-        "base_url": "https://openrouter.ai/api/v1",
-        "model": os.getenv("OPENROUTER_MODEL", "openrouter/free"),
-    },
-    {
-        "name": "Groq",
-        "api_key": GROQ_API_KEY,
-        "base_url": "https://api.groq.com/openai/v1",
-        "model": GROQ_MODEL,
-    },
-]
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY is missing in environment variables")
 
+client = Groq(
+    api_key=GROQ_API_KEY,
+    timeout=45.0,
+    max_retries=2
+)
+
+
+# --------------------------------------------------
+# COMMON AI JSON GENERATION FUNCTION
+# --------------------------------------------------
 
 def generate_json(prompt):
-    errors = []
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert career coach. "
+                        "Return valid JSON only."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.1
+        )
 
-    for provider in PROVIDERS:
-        name = provider["name"]
-        api_key = provider["api_key"]
+        content = response.choices[0].message.content
 
-        if not api_key:
-            logger.warning("%s skipped: API key missing", name)
-            continue
+        if not content:
+            raise ValueError("Groq returned an empty response")
 
-        try:
-            logger.info("Trying AI provider: %s", name)
+        result = json.loads(content)
 
-            client = OpenAI(
-                api_key=api_key,
-                base_url=provider["base_url"],
-                timeout=45.0,
-                max_retries=0,
-            )
+        logger.info("Groq AI request successful")
 
-            response = client.chat.completions.create(
-                model=provider["model"],
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are an expert career coach. "
-                            "Return valid JSON only."
-                        ),
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.1,
-            )
+        return result
 
-            content = response.choices[0].message.content
-
-            if not content:
-                raise ValueError("Provider returned empty response")
-
-            result = json.loads(content)
-
-            logger.info("AI request successful using %s", name)
-            return result
-
-        except Exception as exc:
-            logger.exception("%s failed: %s", name, exc)
-            errors.append(f"{name}: {type(exc).__name__}: {exc}")
-
-    raise RuntimeError(
-        "All AI providers failed. " + " | ".join(errors)
-    )
+    except Exception as exc:
+        logger.exception("Groq AI request failed: %s", exc)
+        raise
 
 
-# Keep all existing functions below this line unchanged.
-
+# --------------------------------------------------
+# 1. RESUME INFORMATION EXTRACTION
+# --------------------------------------------------
 
 def extract_resume_details(resume_text):
+
     prompt = f"""
     Extract information explicitly mentioned in this resume.
 
@@ -115,10 +93,16 @@ def extract_resume_details(resume_text):
     Resume:
     {resume_text[:15000]}
     """
+
     return generate_json(prompt)
 
 
+# --------------------------------------------------
+# 2. JOB SKILL EXTRACTION
+# --------------------------------------------------
+
 def extract_job_skills(job_description):
+
     prompt = f"""
     Extract technical skills required in this job description.
 
@@ -130,11 +114,18 @@ def extract_job_skills(job_description):
     Job Description:
     {job_description[:10000]}
     """
+
     result = generate_json(prompt)
+
     return result["required_skills"]
 
 
+# --------------------------------------------------
+# 3. SKILL GAP ANALYSIS
+# --------------------------------------------------
+
 def generate_skill_gap_analysis(missing_skills, job_description):
+
     if not missing_skills:
         return {
             "skill_gaps": [],
@@ -172,12 +163,20 @@ def generate_skill_gap_analysis(missing_skills, job_description):
     - Base priority on the job description.
     - Do not invent job requirements.
     """
+
     return generate_json(prompt)
 
 
+# --------------------------------------------------
+# 4. PERSONALIZED LEARNING ROADMAP
+# --------------------------------------------------
+
 def generate_learning_roadmap(
-    missing_skills, job_description, duration_days=30
+    missing_skills,
+    job_description,
+    duration_days=30
 ):
+
     duration_days = max(1, min(int(duration_days), 180))
 
     if not missing_skills:
@@ -230,15 +229,26 @@ def generate_learning_roadmap(
     """
 
     result = generate_json(prompt)
+
     result["duration_days"] = duration_days
+
     return result
 
 
-def generate_course_recommendations(missing_skills, job_description=""):
+# --------------------------------------------------
+# 5. COURSE RECOMMENDATIONS
+# --------------------------------------------------
+
+def generate_course_recommendations(
+    missing_skills,
+    job_description=""
+):
+
     if not missing_skills:
         return {
             "recommendations": [],
-            "message": "No missing skills found. Continue advanced practice."
+            "message":
+                "No missing skills found. Continue advanced practice."
         }
 
     prompt = f"""
@@ -303,10 +313,16 @@ def generate_course_recommendations(missing_skills, job_description=""):
     - Use Low, Medium or High confidence honestly.
     - Return valid JSON only.
     """
+
     return generate_json(prompt)
 
 
+# --------------------------------------------------
+# 6. MOCK INTERVIEW QUESTIONS
+# --------------------------------------------------
+
 def generate_interview_questions(job_description):
+
     prompt = f"""
     You are an experienced technical interviewer.
 
@@ -331,10 +347,16 @@ def generate_interview_questions(job_description):
     - Focus on skills required by the job.
     - Return JSON only.
     """
+
     return generate_json(prompt)
 
 
+# --------------------------------------------------
+# 7. MOCK INTERVIEW ANSWER EVALUATION
+# --------------------------------------------------
+
 def evaluate_interview_answer(question, answer):
+
     prompt = f"""
     You are an expert technical interview evaluator.
 
@@ -361,4 +383,5 @@ def evaluate_interview_answer(question, answer):
     - Do not give full marks for incomplete answers.
     - Return JSON only.
     """
+
     return generate_json(prompt)
