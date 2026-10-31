@@ -263,3 +263,152 @@ footer { border-top: 1px solid #e2e0d7; padding: 20px 6%; color: #96988f; font-s
   line-height: 1.7;
   margin: 0;
 }
+/* Daily Learning Streak */
+
+.streak-card {
+  background: #fffefa;
+  border: 1px solid #e9e6dc;
+  border-radius: 13px;
+  padding: 25px;
+  margin: 20px 0 25px;
+}
+
+.streak-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.streak-top .eyebrow {
+  margin-bottom: 8px;
+}
+
+.streak-top h2 {
+  font-size: 23px;
+}
+
+.streak-subtitle {
+  color: #85887f;
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+.streak-flame {
+  font-size: 43px;
+  background: #fff1df;
+  width: 65px;
+  height: 65px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+}
+
+.streak-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 25px 0;
+}
+
+.streak-stats div {
+  background: #f5f5ee;
+  padding: 15px;
+  border-radius: 9px;
+}
+
+.streak-stats strong {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  color: #173d32;
+}
+
+.streak-stats span {
+  font-size: 10px;
+  color: #85887f;
+}
+
+.streak-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 9px;
+  margin: 20px 0;
+}
+
+.streak-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.streak-day-box {
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #f0f0e9;
+  color: #9a9b91;
+  font-weight: 700;
+}
+
+.streak-day-box.completed {
+  background: #dcebdc;
+  color: #28623d;
+}
+
+.streak-day span {
+  font-size: 10px;
+  color: #85887f;
+}
+
+.streak-button {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 14px;
+  background: #173d32;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.streak-button:hover:not(:disabled) {
+  background: #285744;
+  transform: translateY(-1px);
+}
+
+.streak-button.done {
+  background: #e1eee0;
+  color: #356440;
+  cursor: default;
+}
+
+.streak-note {
+  color: #92958d;
+  font-size: 10px;
+  margin: 12px 0 0;
+  text-align: center;
+}
+
+@media(max-width:600px) {
+  .streak-card {
+    padding: 18px;
+  }
+
+  .streak-stats {
+    gap: 7px;
+  }
+
+  .streak-stats div {
+    padding: 10px;
+  }
+
+  .streak-stats strong {
+    font-size: 23px;
+  }
+}

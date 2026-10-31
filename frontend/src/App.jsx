@@ -19,6 +19,59 @@ import {
 } from "lucide-react";
 
 import API from "./api/api";
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const getStreakStats = (dates) => {
+  const completed = [...new Set(dates)].sort();
+  const completedSet = new Set(completed);
+
+  let currentStreak = 0;
+  const today = new Date();
+  const todayKey = getLocalDateKey(today);
+
+  // If today isn't complete yet, allow yesterday's streak to remain active.
+  const checkDate = new Date(today);
+  if (!completedSet.has(todayKey)) {
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  while (completedSet.has(getLocalDateKey(checkDate))) {
+    currentStreak++;
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  let longestStreak = 0;
+  let runningStreak = 0;
+  let previousDate = null;
+
+  completed.forEach((key) => {
+    const currentDate = new Date(`${key}T12:00:00`);
+
+    if (previousDate) {
+      const difference =
+        (currentDate - previousDate) / (1000 * 60 * 60 * 24);
+
+      runningStreak = difference === 1 ? runningStreak + 1 : 1;
+    } else {
+      runningStreak = 1;
+    }
+
+    longestStreak = Math.max(longestStreak, runningStreak);
+    previousDate = currentDate;
+  });
+
+  return {
+    currentStreak,
+    longestStreak,
+    completedToday: completedSet.has(todayKey),
+  };
+};
 
 function App() {
   const [file, setFile] = useState(null);
@@ -42,6 +95,38 @@ function App() {
   // Resume Credibility states
   const [credibilityReport, setCredibilityReport] = useState(null);
   const [credibilityLoading, setCredibilityLoading] = useState(false);
+
+  // Daily Learning Streak (saved in this browser)
+  const [learningDates, setLearningDates] = useState(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("skillbridge_learning_dates") || "[]"
+      );
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const streakStats = getStreakStats(learningDates);
+
+  const markLearningDone = () => {
+    const today = getLocalDateKey();
+
+    if (learningDates.includes(today)) return;
+
+    const updatedDates = [...learningDates, today];
+    setLearningDates(updatedDates);
+
+    try {
+      localStorage.setItem(
+        "skillbridge_learning_dates",
+        JSON.stringify(updatedDates)
+      );
+    } catch (storageError) {
+      console.error("Could not save learning streak:", storageError);
+    }
+  };
 
   // --------------------------------
   // RESUME AND JOB MATCHING
@@ -914,6 +999,70 @@ function App() {
               <h1>
                 30-day <em>roadmap</em>
               </h1>
+
+              {/* DAILY LEARNING STREAK */}
+              <div className="streak-card">
+                <div className="streak-top">
+                  <div>
+                    <p className="eyebrow">BUILD YOUR LEARNING HABIT</p>
+                    <h2>Daily Learning Streak</h2>
+                    <p className="streak-subtitle">
+                      Consistency today creates opportunities tomorrow.
+                    </p>
+                  </div>
+                  <div className="streak-flame" aria-hidden="true">🔥</div>
+                </div>
+
+                <div className="streak-stats">
+                  <div>
+                    <strong>{streakStats.currentStreak}</strong>
+                    <span>Current streak</span>
+                  </div>
+                  <div>
+                    <strong>{streakStats.longestStreak}</strong>
+                    <span>Longest streak</span>
+                  </div>
+                  <div>
+                    <strong>{learningDates.length}</strong>
+                    <span>Total learning days</span>
+                  </div>
+                </div>
+
+                <p className="streak-week-label">YOUR LAST 7 DAYS</p>
+                <div className="streak-week">
+                  {Array.from({ length: 7 }, (_, index) => {
+                    const date = new Date();
+                    date.setDate(date.getDate() - (6 - index));
+                    const dateKey = getLocalDateKey(date);
+                    const completed = learningDates.includes(dateKey);
+
+                    return (
+                      <div className="streak-day" key={dateKey}>
+                        <div className={`streak-day-box ${completed ? "completed" : ""}`}>
+                          {completed ? "✓" : "·"}
+                        </div>
+                        <span>
+                          {date.toLocaleDateString("en-US", { weekday: "short" })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button
+                  className={`streak-button ${streakStats.completedToday ? "done" : ""}`}
+                  onClick={markLearningDone}
+                  disabled={streakStats.completedToday}
+                >
+                  {streakStats.completedToday
+                    ? "✓ Learning completed today"
+                    : "🔥 Mark today's learning complete"}
+                </button>
+
+                <p className="streak-note">
+                  Complete at least one learning task every day to maintain your streak.
+                </p>
+              </div>
 
               {roadmap ? (
 
