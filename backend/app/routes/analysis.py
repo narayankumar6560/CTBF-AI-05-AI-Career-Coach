@@ -17,7 +17,8 @@ from app.services.resume_parser import extract_resume_text
 from app.services.ai_service import (
     extract_resume_details,
     extract_job_skills,
-    generate_skill_gap_analysis
+    generate_skill_gap_analysis,
+    analyze_resume_credibility
 )
 
 from app.database import get_db
@@ -335,6 +336,77 @@ async def match_resume_with_job(
         raise HTTPException(
             status_code=502,
             detail="Resume matching or database saving failed. Check backend terminal."
+        )
+
+    finally:
+        await resume.close()
+
+# --------------------------------------------------
+# 4. RESUME CREDIBILITY ANALYZER
+# --------------------------------------------------
+
+@router.post("/resume/credibility")
+async def check_resume_credibility(
+    resume: UploadFile = File(...)
+):
+    filename = resume.filename or ""
+
+    if not filename.lower().endswith((".pdf", ".docx")):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF and DOCX files are supported"
+        )
+
+    file_bytes = await resume.read(MAX_FILE_SIZE + 1)
+
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="Resume must be below 5 MB"
+        )
+
+    if not file_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty"
+        )
+
+    try:
+        resume_text = extract_resume_text(file_bytes, filename)
+
+        if not resume_text.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="No readable text found in the resume"
+            )
+
+        report = analyze_resume_credibility(resume_text)
+
+        return {
+            "success": True,
+            "filename": filename,
+            "report": report
+        }
+
+    except HTTPException:
+        raise
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error)
+        )
+
+    except Exception as error:
+        print(
+            "CREDIBILITY ANALYSIS ERROR:",
+            repr(error),
+            flush=True
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail="Resume credibility analysis failed. Check backend terminal."
         )
 
     finally:
